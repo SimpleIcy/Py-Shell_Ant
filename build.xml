@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="pmsmodule" default="release" xmlns:jsl="antlib:com.googlecode.jslint4java">
+	<!-- 设置全局参数 -->
+	<!-- 在trunk下生成realse目录，所有的BUNDLE包生成这个目录中. 可以指定绝对路径 -->
+	<property location="." file="../build.properties" />
+	<property location="." file="build.properties" />
+	<property name="platform.repos" value="../../../plugin/01_Trunk/yjgk-release-1.0.0/sgyjgk-warehouse/WEB-INF/repository/platform/Version2.0.0" />
+	<property name="pms.repos" value="../../../plugin/01_Trunk/yjgk-release-1.0.0/sgyjgk-warehouse/WEB-INF/repository/application/yjgk" />
+	<property name="pmsmodule.release.dir" value="${pms.repos}" />
+	<property name="doc.dir" value="../../../plugin/01_Trunk/yjgk-release-1.0.0/docs/${bundle.name}" />
+	<property name="bundle.bin.dir" value="../../../plugin/01_Trunk/yjgk-release-1.0.0/build/bin" />
+	<!--
+	<property name="build.doc" value="false" />
+	-->
+	<!-- BUNDLE的名称与版本号 -->
+	<!--
+	<property name="bundle.name" value="com.sgcc.pms.dwzy.base" />
+	-->
+	<!-- 清理历史编译文件 -->
+	<target name="clean" description="Remove all generated release files.">
+		<delete failonerror="false">
+			<fileset dir="${doc.dir}" includes="*.*" />
+		</delete>
+		<delete failonerror="false">
+			<fileset dir="${pmsmodule.release.dir}" includes="${bundle.name}_${bundle.ver}.**.jar" />
+		</delete>
+		<delete dir="${bundle.bin.dir}" failonerror="false" />
+	</target>
+
+	<!--准备目录-->
+	<target name="init" depends="clean">
+		<mkdir dir="${doc.dir}" />
+		<mkdir dir="${bundle.bin.dir}" />
+	</target>
+
+	<!-- 配置依赖的BUNDLE 集合-->
+	<target name="set.classpath">
+		<path id="project.compile.classpath" location=".">
+			<fileset dir=".">
+				<include name="lib/*.jar" />
+			</fileset>
+			<fileset dir="${platform.repos}/thirdparty">
+				<include name="*.jar" />
+			</fileset>
+			<fileset dir="${platform.repos}/suite">
+				<include name="**/*.jar" />
+			</fileset>
+			<fileset dir="${platform.repos}/infrastructure">
+				<include name="*.jar" />
+			</fileset>
+			<fileset dir="${pms.repos}">
+				<include name="*.jar" />
+			</fileset>
+			<fileset dir="${third-path.dir}">
+				<include name="*.jar" />
+			</fileset>
+			<fileset dir="${platform.repos}/thirdparty/lib">
+				<include name="*.jar" />
+			</fileset>
+			<!--如果有第三方插件放在lib目录下，才需要-->
+<!-- 			<fileset dir=".">
+				<include name="libs/*.jar" />
+			</fileset> -->
+		</path>
+	</target>
+
+	<target name="doc" if="g-doc">
+		<!-- 生成JAVADOC ,不是必须!! -->
+		<javadoc encoding="UTF-8" charset="UTF-8" author="true" bottom="版权所有国家电网公司信通部。保留所有权利。" destdir="${doc.dir}" doctitle="&lt;font color=#ff00000&gt;${bundle.name} API&lt;/font&gt;" sourcepath="src" use="true" version="true" header="版本1.0" windowtitle="${bundle.name}--API">
+			<classpath refid="project.compile.classpath" />
+		</javadoc>
+	</target>
+
+	<!-- 生成BUNDLE -->
+	<target name="release" depends="init,set.classpath">
+		<!-- 编译源代码 ,不是必须!! -->
+		<javac encoding="utf-8" destdir="${bundle.bin.dir}" failonerror="true" verbose="false" debug="yes">
+			<classpath refid="project.compile.classpath" />
+			<src path="src" />
+		</javac>
+		<!-- 将src中的配置文件拷贝到bin ,不是必须!! -->
+		<copy todir="${bundle.bin.dir}">
+			<fileset dir="src">
+				<include name="**/*.properties" />
+			</fileset>
+		</copy>
+		<!--依据build.doc的值,决定是否生成javadoc-->
+		<condition property="g-doc">
+			<istrue value="${build.doc}" />
+		</condition>
+		<antcall target="doc">
+		</antcall>
+
+		<!-- 时间戳 -->
+		<tstamp>
+			<format property="DSTAMP" pattern="yyyyMMddHHmm" />
+		</tstamp>
+		<!-- 动态修改MANIFEST.MF -->
+		<copyfile dest="MANIFEST.NEW" src="META-INF/MANIFEST.MF" />
+		<replace file="MANIFEST.NEW" token="qualifier" value="${DSTAMP}" />
+		<replace file="MANIFEST.NEW" token="1.0.0.v" value="${bundle.ver}.v" />
+
+		<!--压缩展现框架 -->
+		<echo message="编译压缩展现框架的脚本文件" />
+		<java classname="mx.dev.builder.MXBuilder2">
+			<classpath refid="project.compile.classpath" />
+			<arg file="face" />
+		</java>
+		<!-- 生成BUNDLE JAR,不是必须!! -->
+		<jar jarfile="${pmsmodule.release.dir}/${bundle.name}_${bundle.ver}.v${DSTAMP}.jar" filesonly="true" manifest="MANIFEST.NEW" whenempty="skip">
+			<zipfileset dir="META-INF" prefix="META-INF">
+				<include name="**/*.*" />
+			</zipfileset>
+			<zipfileset dir="${bundle.bin.dir}">
+				<include name="**/*.*" />
+			</zipfileset>
+			<fileset dir="src">
+				<include name="**/*.xml" />
+			</fileset>	
+			<!-- 其他资源打入BUNDLE包 -->
+			<zipfileset dir="config" prefix="config">
+				<include name="**/*.*" />
+			</zipfileset>
+			<zipfileset dir="face" prefix="face">
+				<include name="**/*.*" />
+			</zipfileset>	
+			<zipfileset dir=".">
+				<include name="sqls/*.xml" />
+				<include name="lib/*.*" />
+			</zipfileset>
+			<zipfileset file="deploy.xml" />
+		</jar>
+		<!-- 删除临时文件 -->
+		<delete file="MANIFEST.NEW" />
+		<!-- 源代码打包,不是必须!! 
+			<zip destfile="${release.dir}/${bundle.name}_${bundle.ver}.v${DSTAMP}.zip" basedir="src" includes="**/*.java" />-->
+
+		<!-- 判断是否进行代码检查 -->
+		<!--
+		<taskdef resource="net/sf/antcontrib/antlib.xml" classpath="${third-path.dir}/ant-contrib/ant-contrib-1.0b3.jar" />
+		<if>
+			<equals arg1="${isCheck}" arg2="true" />
+			<then>
+				<antcall target="checkstyle">
+				</antcall>
+				<antcall target="FindBugs">
+				</antcall>
+				<antcall target="jslint">
+				</antcall>
+			</then>
+		</if>
+		-->
+	</target>
+     <!--
+	<target name="checkstyle">
+		<property name="checkstyle.home" value="${third-path.dir}\checkstyle-5.6" />
+		<property name="sunChecks-path" value="${third-path.dir}" />
+		<taskdef resource="checkstyletask.properties" classpath="${checkstyle.home}\checkstyle-5.6-all.jar" />
+		<checkstyle config="${sunChecks-path}\sun_checks.xml" classpath="${checkstyle.home}\checkstyle-5.6-all.jar">
+			<formatter type="xml" tofile="checkstyle-result.xml" />
+			<fileset dir="src">
+				<exclude name="**/*vo/**/*.java" />
+				<exclude name="**/*po/*.java" />
+				<include name="**/*.java" />
+			</fileset>
+		</checkstyle>
+	</target>
+
+	<target name="FindBugs">
+		<property name="findbug.home" value="${third-path.dir}\findbugs-2.0.2" />
+		<path id="findbug.path">
+			<fileset dir="${findbug.home}">
+				<include name="**/*.jar" />
+			</fileset>
+		</path>
+		<taskdef name="FindBugs" classname="edu.umd.cs.findbugs.anttask.FindBugsTask" classpathref="findbug.path" />
+		<FindBugs home="${findbug.home}" output="xml" outputFile="findbugs.xml" excludefilter="${third-path.dir}\FindBugsFilter.xml">
+			<classpath refid="project.compile.classpath">
+			</classpath>
+			<fileset dir="${pmsmodule.release.dir}">
+				<include name="${bundle.name}_${bundle.ver}.**.jar" />
+			</fileset>
+		</FindBugs>
+	</target>
+	-->
+	<!--
+	 <target name="jslint"> 
+	 	<property name="jslint.home" value="${third-path.dir}\jslint" />
+	 	<path id="ant.tasks.classpath"> 
+	 		    <fileset dir="${jslint.home}" includes="*.jar" /> 
+	 	</path> 
+		  <taskdef uri="antlib:com.googlecode.jslint4java" classpathref="ant.tasks.classpath" resource="com/googlecode/jslint4java/antlib.xml"/> 
+		  -->
+		<!--haltOnFailure=false失败时不停止-->	 
+		<!--
+	 	<jsl:jslint options="ANON=true,BITWISE=true,BROWSER=true,CAP=true,CONTINUE=false,CSS=true,DEBUG=false,DEVEL=false,EQEQ=true,MAXLEN=120,ES5=true,EVIL=false,FORIN=true,FRAGMENT=true,NEWCAP=true,NODE=true,NOMEN=true,ON=true,PASSFAIL=false,PLUSPLUS=true,PROPERTIES=false,REGEXP=true,RHINO=true,SLOPPY=true,SUB=true,UNDEF=true,UNPARAM=false,VARS=true,WHITE=false,WIDGET=true,WINDOWS=true" haltOnFailure="false">
+				 <predef>dojo, dojox, dijit</predef> 
+				 -->
+			 	<!--报告格式：xml：xml报告、report：html报告、junit：junit格式的xml、checkstyle：checkstyle格式xml、plain：输出控制台-->
+				<!--
+				 <formatter type="xml" destfile="jslint-report.xml" /> 
+				 -->
+			 	<!--定义扫描路径及扫描文件-->
+				<!--
+				 <fileset dir="face" includes="**/*.js" excludes="**/*.weblet.js" /> 
+			 </jsl:jslint> 
+			 
+			 	</target> 
+				-->
+</project>
