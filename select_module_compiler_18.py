@@ -49,10 +49,20 @@ def compilejar():
 		time.sleep(1)
 		if module_name in PC_MODULES or module_name in NEW_PC_MODULES:
 			os.system('D:\package\cmd1\%s.cmd' % module_name)
-			CREATED_JARS.append(module_name)
+			if os.path.isfile("%s\%s*.jar" % (NEW_JARS,module_name)):
+				CREATED_JARS.append(module_name)
+				continue
+			else:
+				print "Compile the module:%s failure! Please check your code!" % module_name
+				break
 		else:
 			os.system('D:\package\cmd\%s.cmd' % module_name) #compile the jar package
-			CREATED_JARS.append(module_name)
+			if os.path.isfile("%s\%s*.jar" % (NEW_JARS,module_name)):
+				CREATED_JARS.append(module_name)
+				continue
+			else:
+				print "Compile the module:%s failure! Please check your code!" % module_name
+				break
 
 			
 		
